@@ -89,8 +89,7 @@ jobs:
           echo "postgresPassword=${{ secrets.DEV_POSTGRES_PASSWORD }}" >> $GITHUB_ENV
           echo "postgresUser=${{ secrets.DEV_POSTGRES_USER }}" >> $GITHUB_ENV
           echo "postgresHost=${{ secrets.DEV_POSTGRES_HOST }}" >> $GITHUB_ENV
-          echo "postgresDb=${{ secrets.DEV_POSTGRES_DB }}" >> $GITHUB_ENV
-          echo "databaseUrl=${{ secrets.DEV_POSTGRES_URL }}" >> $GITHUB_ENV
+          echo "postgresDb=${{ env.environment }}_blog" >> $GITHUB_ENV
 
     - name: Sets env vars for prod environment
       if: env.environment == 'prod'
@@ -103,8 +102,7 @@ jobs:
           echo "postgresPassword=${{ secrets.PROD_POSTGRES_PASSWORD }}" >> $GITHUB_ENV
           echo "postgresUser=${{ secrets.PROD_POSTGRES_USER }}" >> $GITHUB_ENV
           echo "postgresHost=${{ secrets.PROD_POSTGRES_HOST }}" >> $GITHUB_ENV
-          echo "postgresDb=${{ secrets.PROD_POSTGRES_DB }}" >> $GITHUB_ENV
-          echo "databaseUrl=${{ secrets.PROD_POSTGRES_URL }}" >> $GITHUB_ENV
+          echo "postgresDb=blog" >> $GITHUB_ENV
 
     - name: Login to Docker Hub
       uses: docker/login-action@v3
@@ -149,6 +147,21 @@ jobs:
           cluster_name=$(terraform output --json -state=$state_file_name | jq -r '.cluster_name.value')
           echo "CLUSTER_NAME=$cluster_name" >> "$GITHUB_OUTPUT"
 
+          # Database endpoint
+          endpoint=$(terraform output --json -state=$state_file_name | jq -r '.db_instance_endpoint_coder.value')
+          echo "DB_ENDPOINT=$endpoint" >> "$GITHUB_OUTPUT"
+
+          # Database secret name
+          secret_name=$(terraform output --json -state=$state_file_name | jq -r '.coder_secret_name.value')
+          echo "SECRET_NAME=$secret_name" >> "$GITHUB_OUTPUT"
+
+    - name: Get coder database secret
+      uses: aws-actions/aws-secretsmanager-get-secrets@v2
+      with:
+        secret-ids: |
+          DB,${{ steps.get-resource-name.outputs.SECRET_NAME }}
+        parse-json-secrets: true
+
     - name: Update kubeconfig for EKS Cluster
       run: |
         aws eks update-kubeconfig --name ${{ steps.get-resource-name.outputs.CLUSTER_NAME }} --region ${{ env.awsRegion }}
@@ -160,10 +173,10 @@ jobs:
         PORT: $(echo -n "8000" | base64 -w 0)
         LOG_LEVEL: $(echo -n "info" | base64 -w 0)
         POSTGRES_DB: $(echo -n "${{ env.postgresDb }}" | base64 -w 0)
-        POSTGRES_USER: $(echo -n "${{ env.postgresUser }}" | base64 -w 0)
-        POSTGRES_PASSWORD: $(echo -n "${{ env.postgresPassword }}" | base64 -w 0)
-        POSTGRES_HOST: $(ehco -n "${{ env.postgresHost }}" | base64 -w 0)
-        DATABASE_URL: $(echo -n "${{ env.databaseUrl }}?sslmode=disable" | base64 -w 0)
+        POSTGRES_USER: $(echo -n "${{ env.DB_USERNAME }}" | base64 -w 0)
+        POSTGRES_PASSWORD: $(echo -n "${{ env.DB_PASSWORD }}" | base64 -w 0)
+        POSTGRES_HOST: $(ehco -n "${{ steps.get-resource-name.outputs.DB_ENDPOINT }}" | base64 -w 0)
+        DATABASE_URL: $(echo -n "postgresql://${{ env.DB_USERNAME }}:${{ env.DB_PASSWORD }}@${{ steps.get-resource-name.outputs.DB_ENDPOINT }}:5432/${{ env.postgresDb }}?sslmode=disable" | base64 -w 0)
         EOF
 
     - name: Creating image pull secret
