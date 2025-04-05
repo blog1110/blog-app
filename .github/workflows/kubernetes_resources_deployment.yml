@@ -1,0 +1,115 @@
+name: KUBERNETES COMMON RESOURCES PROVISIONING
+run-name: '[${{ github.event_name }} - ${{ github.ref_name }}] provisioned by @${{ github.actor }}'
+
+on:
+  workflow_dispatch:
+     inputs:
+        commitsha:
+          description: Commit Hash to be used in manifest rollback
+        environment:
+          description: 'Environment:'
+          type: choice
+          required: true
+          default: 'dev'
+          options:
+              - dev
+              - prod
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  # Terraform
+  terraformS3Key: ${{ secrets.ACCOUNT_ID}}/${{ secrets.S3_KEY }}/dev.tfstate
+  terraformDynamo: ${{ secrets.DYNAMODB_NAME }}
+  terraformBucket: ${{ secrets.BUCKET_NAME }}
+  oidcRoleName: ${{ secrets.OIDC_ROLE_NAME }}
+  terraformS3Acl: bucket-owner-full-control
+  accountId: ${{ secrets.ACCOUNT_ID }}
+  terraformS3Encryption: true
+  terraformVersion: 1.9.5
+  awsRegion: us-east-1
+
+  # Kubernetes
+  privateNamespaceChart: kubernetes_chart/namespace
+  namespace: ingress-nginx
+  helmVersion: 3.17.0
+
+  # Enironment to be used for deployment
+  environment: ${{ github.event.inputs.environment || 'dev' }}
+
+  # Commit Hash to be used in build and deployment
+  shaToDeploy: ${{ github.event.inputs.commitsha || github.sha }}
+
+jobs:
+  deploy:
+    name: Kubernetes Common Resources
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ env.shaToDeploy }}
+
+    - name: Install JQ Tool
+      uses: mbround18/install-jq@v1
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3.0.0
+      with:
+        terraform_version: ${{ env.terraformVersion }}
+        terraform_wrapper: false
+
+    - name: Setup helm version ${{ env.helmVersion }}
+      id: install-helm
+      uses: azure/setup-helm@v4.2.0
+      with:
+          version: ${{ env.helmVersion }}
+
+    - name: Sets env vars for dev environment
+      if: env.environment == 'dev' || github.event_name == 'push'
+      run: |
+          echo "namespaceValues=${{ env.environment }}_namespace.yaml" >> $GITHUB_ENV
+
+    - name: Sets env vars for prod environment
+      if: env.environment == 'prod'
+      run: |
+          echo "namespaceValues=${{ env.environment }}_namespace.yaml" >> $GITHUB_ENV
+
+    - name: configure aws credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::${{ env.accountId }}:role/${{ env.oidcRoleName }}
+        role-session-name: OIDCSession
+        aws-region: ${{ env.awsRegion }}
+
+    - name: Get cluster name
+      uses: mathiasvr/command-output@v2.0.0
+      id: get-resource-name
+      with:
+        run: |
+          state_file_name=${{ env.terraformS3Key }}
+          aws s3 cp s3://${{ env.terraformBucket }}/${{ env.terraformS3Key }} $state_file_name
+
+          # Cluster name
+          cluster_name=$(terraform output --json -state=$state_file_name | jq -r '.cluster_name.value')
+          echo "CLUSTER_NAME=$cluster_name" >> "$GITHUB_ENV"
+
+    - name: Update kubeconfig for EKS Cluster
+      run: |
+        aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.awsRegion }}
+
+    - name: Namespaces creation dry-run
+      id: ns-dry-run
+      working-directory: ${{ env.privateNamespaceChart }}
+      run: |
+        helm upgrade --install namespace ./ --values ${{ env.namespaceValues }} --dry-run --debug
+
+    - name: Create necessary namespaces
+      if : steps.ns-dry-run.outputs.exit-code == 0
+      working-directory: ${{ env.privateNamespaceChart }}
+      run: |
+        helm upgrade --install namespace ./ --values ${{ env.namespaceValues }}

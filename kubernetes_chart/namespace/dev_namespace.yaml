@@ -1,0 +1,5 @@
+namespaces:
+  - blog-dev
+
+environment: dev
+owner: mukesh.awasthi
