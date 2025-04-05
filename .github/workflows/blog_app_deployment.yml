@@ -179,14 +179,6 @@ jobs:
         DATABASE_URL: $(echo -n "postgresql://${{ env.DB_USERNAME }}:${{ env.DB_PASSWORD }}@${{ steps.get-resource-name.outputs.DB_ENDPOINT }}:5432/${{ env.postgresDb }}?sslmode=disable" | base64 -w 0)
         EOF
 
-    - name: Creating image pull secret
-      run: |
-        cat << EOF > image.yaml
-        DOCKER_USERNAME: $(echo -n "${{ env.dockerhubUsername }}" | base64 -w 0)
-        DOCKER_PASSWORD: $(echo -n "${{ secrets.DOCKER_TOKEN }}" | base64 -w 0)
-        DOCKER_EMAIL: $(echo -n "awasthimukesh123@gmail.com" | base64 -w 0)
-        EOF
-
     - name: Helm chart dry-run for application
       run: |
         helm upgrade --install ${{ env.helmReleaseName }} ${{ env.helm }} \
