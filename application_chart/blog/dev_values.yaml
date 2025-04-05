@@ -36,6 +36,15 @@ readinessProbe:
 # Secrets Configuration
 secretData:
 
+# Horizontal Pod Autoscaler Configuration
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+
 # Ingress Configuration
 ingress:
   enabled: true
