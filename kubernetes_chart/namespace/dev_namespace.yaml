@@ -1,0 +1,6 @@
+namespaces:
+  - blog-dev
+  - ingress-nginx-dev
+
+environment: dev
+owner: mukesh.awasthi
