@@ -1,0 +1,17 @@
+# Config values : https://github.com/bitnami/charts/tree/master/bitnami/postgresql
+global:
+  postgresql:
+    auth:
+      postgresPassword: "SuperSecretPGAdminPa55word!"
+      username: "dvdrental_admin"
+      password: "notAsSecretU5erPa55word"
+      database: "dvdrental"
+primary:
+  persistence:
+    enabled: true
+    volumeName: "blog-dev"
+    mountPath: /bitnami/postgresql
+    storageClass: "infix-dev-storageclass"
+    accessModes:
+      - ReadWriteOnce
+    size: 8Gi
