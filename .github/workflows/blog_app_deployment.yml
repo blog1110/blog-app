@@ -175,7 +175,7 @@ jobs:
         POSTGRES_DB: $(echo -n "${{ env.postgresDb }}" | base64 -w 0)
         POSTGRES_USER: $(echo -n "${{ env.DB_USERNAME }}" | base64 -w 0)
         POSTGRES_PASSWORD: $(echo -n "${{ env.DB_PASSWORD }}" | base64 -w 0)
-        POSTGRES_HOST: $(ehco -n "${{ steps.get-resource-name.outputs.DB_ENDPOINT }}" | base64 -w 0)
+        POSTGRES_HOST: $(echo -n "${{ steps.get-resource-name.outputs.DB_ENDPOINT }}" | base64 -w 0)
         DATABASE_URL: $(echo -n "postgresql://${{ env.DB_USERNAME }}:${{ env.DB_PASSWORD }}@${{ steps.get-resource-name.outputs.DB_ENDPOINT }}:5432/${{ env.postgresDb }}?sslmode=disable" | base64 -w 0)
         EOF
 
