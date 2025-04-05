@@ -72,12 +72,14 @@ jobs:
     - name: Sets env vars for dev environment
       if: env.environment == 'dev'
       run: |
-          echo "namespaceValues=${{ env.environment }}_namespace.yaml" >> $GITHUB_ENV
+        echo "namespaceValues=${{ env.environment }}_namespace.yaml" >> $GITHUB_ENV
+        echo "helmReleaseName=${{ env.environment }}-namespace" >> $GITHUB_ENV
 
     - name: Sets env vars for prod environment
       if: env.environment == 'prod'
       run: |
-          echo "namespaceValues=${{ env.environment }}_namespace.yaml" >> $GITHUB_ENV
+        echo "namespaceValues=${{ env.environment }}_namespace.yaml" >> $GITHUB_ENV
+        echo "helmReleaseName=${{ env.environment }}-namespace" >> $GITHUB_ENV
 
     - name: configure aws credentials
       uses: aws-actions/configure-aws-credentials@v4
@@ -106,10 +108,10 @@ jobs:
       id: ns-dry-run
       working-directory: ${{ env.privateNamespaceChart }}
       run: |
-        helm upgrade --install namespace ./ --values ${{ env.namespaceValues }} --dry-run --debug
+        helm upgrade --install ${{ env.helmReleaseName }} ./ --values ${{ env.namespaceValues }} --dry-run --debug
 
     - name: Create necessary namespaces
       if : steps.ns-dry-run.outputs.exit-code == 0
       working-directory: ${{ env.privateNamespaceChart }}
       run: |
-        helm upgrade --install namespace ./ --values ${{ env.namespaceValues }}
+        helm upgrade --install ${{ env.helmReleaseName }} ./ --values ${{ env.namespaceValues }}
