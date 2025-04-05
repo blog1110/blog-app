@@ -39,6 +39,7 @@ env:
   # Kubernetes
   application: blog
   helm: application_chart/blog
+  postgres: application_chart/postgres
   helmVersion: 3.17.0
 
   # Enironment to be used for deployment
@@ -81,6 +82,7 @@ jobs:
       if: env.environment == 'dev' || github.event_name == 'push'
       run: |
           echo "helmReleaseName= ${{ env.environment }}-${{ env.application }}" >> $GITHUB_ENV
+          echo "postgresValuesFile=${{ env.environment }}_values.yaml" >> $GITHUB_ENV
           echo "valuesFile=${{ env.environment }}_values.yaml" >> $GITHUB_ENV
           echo "namespace=blog-${{ env.environment }}" >> $GITHUB_ENV
 
@@ -94,6 +96,7 @@ jobs:
       if: env.environment == 'prod'
       run: |
           echo "helmReleaseName= ${{ env.environment }}-${{ env.application }}" >> $GITHUB_ENV
+          echo "postgresValuesFile=${{ env.environment }}_values.yaml" >> $GITHUB_ENV
           echo "valuesFile=${{ env.environment }}_values.yaml" >> $GITHUB_ENV
           echo "namespace=blog-${{ env.environment }}" >> $GITHUB_ENV
 
@@ -169,7 +172,7 @@ jobs:
 
     - name: Helm chart installation for postgres
       run: |
-        helm install my-postgresql bitnami/postgresql --version 16.6.0
+        helm install my-postgresql bitnami/postgresql --version 16.6.0 -f ${{ env.postgresValuesFile}}
 
     - name: Helm chart dry-run for application
       run: |
