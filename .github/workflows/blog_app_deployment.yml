@@ -153,17 +153,25 @@ jobs:
     - name: Creating environment variables
       run: |
         cat << EOF > env.yaml
-        GO_ENV: ${{ env.environment }}
-        PORT: 8000
-        LOG_LEVEL: info
-        POSTGRES_DB: ${{ env.postgresDb }}
-        POSTGRES_USER: ${{ env.postgresUser }}
-        POSTGRES_PASSWORD: ${{ env.postgresPassword }}
-        POSTGRES_HOST: ${{ env.postgresHost }}
-        DATABASE_URL: ${{ env.databaseUrl }}?sslmode=disable
+        GO_ENV: $(echo -n "${{ env.environment }}" | base64 -w 0)
+        PORT: $(echo -n "8000" | base64 -w 0)
+        LOG_LEVEL: $(echo -n "info" | base64 -w 0)
+        POSTGRES_DB: $(echo -n "${{ env.postgresDb }}" | base64 -w 0)
+        POSTGRES_USER: $(echo -n "${{ env.postgresUser }}" | base64 -w 0)
+        POSTGRES_PASSWORD: $(echo -n "${{ env.postgresPassword }}" | base64 -w 0)
+        POSTGRES_HOST: $(ehco -n "${{ env.postgresHost }}" | base64 -w 0)
+        DATABASE_URL: $(echo -n "${{ env.databaseUrl }}?sslmode=disable" | base64 -w 0)
         EOF
 
-    - name: Helm chart dry-run
+    - name: Helm repo for postgres
+      run: |
+        helm repo add bitnami https://charts.bitnami.com/bitnami
+
+    - name: Helm chart installation for postgres
+      run: |
+        helm install my-postgresql bitnami/postgresql --version 16.6.0
+
+    - name: Helm chart dry-run for application
       run: |
         helm upgrade --install ${{ env.helmReleaseName }} ${{ env.helm }} \
         --namespace ${{ env.namespace }} \
