@@ -1,0 +1,182 @@
+name: BLOG APP DEPLOYMENT
+run-name: '[${{ github.event_name }} - ${{ github.ref_name }}] deployment by @${{ github.actor }}'
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+     inputs:
+        commitsha:
+          description: Commit Hash to be used in build and deployment
+        environment:
+          description: 'Environment:'
+          type: choice
+          required: true
+          default: 'dev'
+          options:
+              - dev
+              - prod
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  # Terraform
+  terraformS3Key: ${{ secrets.ACCOUNT_ID}}/${{ secrets.S3_KEY }}/dev.tfstate
+  terraformDynamo: ${{ secrets.DYNAMODB_NAME }}
+  terraformBucket: ${{ secrets.BUCKET_NAME }}
+  oidcRoleName: ${{ secrets.OIDC_ROLE_NAME }}
+  terraformS3Acl: bucket-owner-full-control
+  accountId: ${{ secrets.ACCOUNT_ID }}
+  dockerhubUsername: mukesh1111
+  terraformS3Encryption: true
+  terraformVersion: 1.9.5
+  awsRegion: us-east-1
+
+  # Kubernetes
+  application: blog
+  helm: application_chart/blog
+  helmVersion: 3.17.0
+
+  # Enironment to be used for deployment
+  environment: ${{ github.event.inputs.environment || 'dev' }}
+
+  # Commit Hash to be used in build and deployment
+  shaToDeploy: ${{ github.event.inputs.commitsha || github.sha }}
+
+jobs:
+  deploy:
+    name: Infix Backend Application
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ env.shaToDeploy }}
+
+    - name: Install JQ Tool
+      uses: mbround18/install-jq@v1
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3.0.0
+      with:
+        terraform_version: ${{ env.terraformVersion }}
+        terraform_wrapper: false
+
+    - name: Setup helm version ${{ env.helmVersion }}
+      id: install-helm
+      uses: azure/setup-helm@v4.2.0
+      with:
+          version: ${{ env.helmVersion }}
+
+    - name: Get Git commit short SHA
+      id: short-sha
+      uses: benjlevesque/short-sha@v3.0
+
+    - name: Sets env vars for dev environment
+      if: env.environment == 'dev' || github.event_name == 'push'
+      run: |
+          echo "helmReleaseName= ${{ env.environment }}-${{ env.application }}" >> $GITHUB_ENV
+          echo "valuesFile=${{ env.environment }}_values.yaml" >> $GITHUB_ENV
+          echo "namespace=blog-${{ env.environment }}" >> $GITHUB_ENV
+
+          echo "postgresPassword=${{ secrets.DEV_POSTGRES_PASSWORD }}" >> $GITHUB_ENV
+          echo "postgresUser=${{ secrets.DEV_POSTGRES_USER }}" >> $GITHUB_ENV
+          echo "postgresHost=${{ secrets.DEV_POSTGRES_HOST }}" >> $GITHUB_ENV
+          echo "postgresDb=${{ secrets.DEV_POSTGRES_DB }}" >> $GITHUB_ENV
+          echo "databaseUrl=${{ secrets.DEV_POSTGRES_URL }}" >> $GITHUB_ENV
+
+    - name: Sets env vars for prod environment
+      if: env.environment == 'prod'
+      run: |
+          echo "helmReleaseName= ${{ env.environment }}-${{ env.application }}" >> $GITHUB_ENV
+          echo "valuesFile=${{ env.environment }}_values.yaml" >> $GITHUB_ENV
+          echo "namespace=blog-${{ env.environment }}" >> $GITHUB_ENV
+
+          echo "postgresPassword=${{ secrets.PROD_POSTGRES_PASSWORD }}" >> $GITHUB_ENV
+          echo "postgresUser=${{ secrets.PROD_POSTGRES_USER }}" >> $GITHUB_ENV
+          echo "postgresHost=${{ secrets.PROD_POSTGRES_HOST }}" >> $GITHUB_ENV
+          echo "postgresDb=${{ secrets.PROD_POSTGRES_DB }}" >> $GITHUB_ENV
+          echo "databaseUrl=${{ secrets.PROD_POSTGRES_URL }}" >> $GITHUB_ENV
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ env.dockerhubUsername }}
+        password: ${{ secrets.DOCKER_TOKEN }}
+
+    - name: Check if image exists
+      id: check-image
+      run: |
+        if docker manifest inspect ${{ env.dockerhubUsername }}/blog-app:${{ env.SHA }} > /dev/null; then
+          echo "Docker image already exists. Skipping build"
+          echo "build=0" >> $GITHUB_OUTPUT
+        else
+          echo "starting build"
+          echo "build=1" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v6
+      if: steps.check-image.outputs.build == 1
+      with:
+        push: true
+        tags: ${{ env.dockerhubUsername }}/blog-app:${{ env.SHA }}
+
+    - name: configure aws credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::${{ env.accountId }}:role/${{ env.oidcRoleName }}
+        role-session-name: AppDeploymentOidcSession
+        aws-region: ${{ env.awsRegion }}
+
+    - name: Get the necessary resource name
+      uses: mathiasvr/command-output@v2.0.0
+      id: get-resource-name
+      with:
+        run: |
+          state_file_name=${{ env.terraformS3Key }}
+          aws s3 cp s3://${{ env.terraformBucket }}/${{ env.terraformS3Key }} $state_file_name
+
+          # Cluster name
+          cluster_name=$(terraform output --json -state=$state_file_name | jq -r '.cluster_name.value')
+          echo "CLUSTER_NAME=$cluster_name" >> "$GITHUB_OUTPUT"
+
+    - name: Update kubeconfig for EKS Cluster
+      run: |
+        aws eks update-kubeconfig --name ${{ steps.get-resource-name.outputs.CLUSTER_NAME }} --region ${{ env.awsRegion }}
+
+    - name: Creating environment variables
+      run: |
+        cat << EOF > env.yaml
+        GO_ENV: ${{ env.environment }}
+        PORT: 8000
+        LOG_LEVEL: info
+        POSTGRES_DB: ${{ env.postgresDb }}
+        POSTGRES_USER: ${{ env.postgresUser }}
+        POSTGRES_PASSWORD: ${{ env.postgresPassword }}
+        POSTGRES_HOST: ${{ env.postgresHost }}
+        DATABASE_URL: ${{ env.databaseUrl }}?sslmode=disable
+        EOF
+
+    - name: Helm chart dry-run
+      run: |
+        helm upgrade --install ${{ env.helmReleaseName }} ${{ env.helm }} \
+        --namespace ${{ env.namespace }} \
+        --set image.repository=${{ env.dockerhubUsername }}/blog-app:${{ env.SHA }}  \
+        --set-file secretData=env.yaml \
+        -f ${{ env.helm }}/${{ env.valuesFile }} \
+        --dry-run --debug
+
+    - name: Deploy Helm chart to ${{ env.namespace }} namespace
+      if : steps.dry-run.outputs.exit-code == 0
+      run: |
+        helm upgrade --install ${{ env.helmReleaseName }} ${{ env.helm }} \
+        --namespace ${{ env.namespace }} \
+        --set image.repository=${{ env.dockerhubUsername }}/blog-app:${{ env.SHA }}  \
+        --set-file secretData=env.yaml \
+        -f ${{ env.helm }}/${{ env.valuesFile }}

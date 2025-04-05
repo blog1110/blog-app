@@ -2,9 +2,6 @@ name: KUBERNETES COMMON RESOURCES PROVISIONING
 run-name: '[${{ github.event_name }} - ${{ github.ref_name }}] provisioned by @${{ github.actor }}'
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
      inputs:
         commitsha:
@@ -73,7 +70,7 @@ jobs:
           version: ${{ env.helmVersion }}
 
     - name: Sets env vars for dev environment
-      if: env.environment == 'dev' || github.event_name == 'push'
+      if: env.environment == 'dev'
       run: |
           echo "namespaceValues=${{ env.environment }}_namespace.yaml" >> $GITHUB_ENV
 
