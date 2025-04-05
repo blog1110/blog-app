@@ -190,6 +190,7 @@ jobs:
         --namespace ${{ env.namespace }} \
         --set image.repository=${{ env.dockerhubUsername }}/blog-app:${{ env.SHA }}  \
         --set-file secretData=env.yaml \
+        --set-file imageSecretData=image.yaml \
         -f ${{ env.helm }}/${{ env.valuesFile }} \
         --dry-run --debug
 
