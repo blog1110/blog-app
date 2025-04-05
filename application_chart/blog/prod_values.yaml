@@ -1,0 +1,37 @@
+# Common
+owner: mukesh.awasthi
+nameOverride: infix
+environment: prod
+project: infix
+app: blog
+
+# Deployment Configuration
+replicaCount: 1
+image:
+  repository: ""
+  pullPolicy: IfNotPresent
+  tag: ""
+
+# Service Account Configuration
+serviceAccount:
+  create: true
+  automount: true
+  name:
+
+# Service Configuration
+service:
+  type: ClusterIP
+  port: 8000
+
+# Probes Configuration
+livenessProbe:
+  httpGet:
+    path: /
+    port: 8000
+readinessProbe:
+  httpGet:
+    path: /
+    port: 8000
+
+# Secrets Configuration
+secretData:

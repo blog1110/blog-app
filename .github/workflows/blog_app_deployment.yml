@@ -164,6 +164,12 @@ jobs:
         POSTGRES_PASSWORD: $(echo -n "${{ env.postgresPassword }}" | base64 -w 0)
         POSTGRES_HOST: $(ehco -n "${{ env.postgresHost }}" | base64 -w 0)
         DATABASE_URL: $(echo -n "${{ env.databaseUrl }}?sslmode=disable" | base64 -w 0)
+        EOF
+
+    - name: Creating image pull secret
+      run: |
+        cat << EOF > image.yaml
+        DOCKER_REGISTRY_SERVER: $(echo -n "https://docker.io" | base64 -w 0)
         DOCKER_USERNAME: $(echo -n "${{ env.dockerhubUsername }}" | base64 -w 0)
         DOCKER_PASSWORD: $(echo -n "${{ secrets.DOCKER_TOKEN }}" | base64 -w 0)
         DOCKER_EMAIL: $(echo -n "awasthimukesh123@gmail.com" | base64 -w 0)
@@ -176,7 +182,7 @@ jobs:
     - name: Helm chart installation for postgres
       working-directory: ${{ env.postgres }}
       run: |
-        helm upgrade --install blo-postgresql bitnami/postgresql --version 16.6.0 -f ${{ env.postgresValuesFile}}
+        helm upgrade --install blo-postgresql bitnami/postgresql --namespace ${{ env.namespace }} --version 16.6.0 -f ${{ env.postgresValuesFile}}
 
     - name: Helm chart dry-run for application
       run: |
@@ -194,4 +200,5 @@ jobs:
         --namespace ${{ env.namespace }} \
         --set image.repository=${{ env.dockerhubUsername }}/blog-app:${{ env.SHA }}  \
         --set-file secretData=env.yaml \
+        --set-file imageSecretData=image.yaml \
         -f ${{ env.helm }}/${{ env.valuesFile }}
