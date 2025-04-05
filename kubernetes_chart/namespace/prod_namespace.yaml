@@ -1,0 +1,5 @@
+namespaces:
+  - blog-prod
+
+environment: prod
+owner: mukesh.awasthi
