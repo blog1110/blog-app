@@ -173,7 +173,7 @@ jobs:
     - name: Helm chart installation for postgres
       working-directory: ${{ env.postgres }}
       run: |
-        helm install blo-postgresql bitnami/postgresql --version 16.6.0 -f ${{ env.postgresValuesFile}}
+        helm upgrade --install blo-postgresql bitnami/postgresql --version 16.6.0 -f ${{ env.postgresValuesFile}}
 
     - name: Helm chart dry-run for application
       run: |
