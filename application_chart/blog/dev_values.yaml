@@ -1,0 +1,57 @@
+# Common
+owner: mukesh.awasthi
+nameOverride: blog
+environment: dev
+project: devops
+app: blog
+
+# Deployment Configuration
+replicaCount: 1
+image:
+  repository: ""
+  pullPolicy: IfNotPresent
+  tag: ""
+
+# Service Account Configuration
+serviceAccount:
+  create: true
+  automount: true
+  name:
+
+# Service Configuration
+service:
+  type: ClusterIP
+  port: 8000
+
+# Probes Configuration
+livenessProbe:
+  httpGet:
+    path: /
+    port: 8000
+readinessProbe:
+  httpGet:
+    path: /
+    port: 8000
+
+# Secrets Configuration
+secretData:
+
+# Ingress Configuration
+ingress:
+  enabled: true
+  className: infix-dev-ingress-class
+  annotations:
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    acme.cert-manager.io/http01-edit-in-place: "true"
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "16k"
+    cert-manager.io/cluster-issuer: infix-dev-clusterissuer
+    nginx.ingress.kubernetes.io/cors-allow-origin: "dev.blog.qbits.ltd"
+  rules:
+    - host: dev.blog.qbits.ltd
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - dev.blog.qbits.ltd
+      secretName: blog-dev-tls-secret
