@@ -74,12 +74,14 @@ jobs:
       run: |
         echo "namespaceValues=${{ env.environment }}_namespace.yaml" >> $GITHUB_ENV
         echo "helmReleaseName=${{ env.environment }}-namespace" >> $GITHUB_ENV
+        echo "namespace=blog-${{ env.environment }}" >> $GITHUB_ENV
 
     - name: Sets env vars for prod environment
       if: env.environment == 'prod'
       run: |
         echo "namespaceValues=${{ env.environment }}_namespace.yaml" >> $GITHUB_ENV
         echo "helmReleaseName=${{ env.environment }}-namespace" >> $GITHUB_ENV
+        echo "namespace=blog-${{ env.environment }}" >> $GITHUB_ENV
 
     - name: configure aws credentials
       uses: aws-actions/configure-aws-credentials@v4
@@ -115,3 +117,12 @@ jobs:
       working-directory: ${{ env.privateNamespaceChart }}
       run: |
         helm upgrade --install ${{ env.helmReleaseName }} ./ --values ${{ env.namespaceValues }}
+
+    - name: Kubernetes metrics server repo
+      run: |
+        helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+
+    - name: Install metrics server
+      run : |
+        helm install metrics-server metrics-server/metrics-server -n ${{ env.namespace }}
+
