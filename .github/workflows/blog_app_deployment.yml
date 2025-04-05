@@ -169,7 +169,6 @@ jobs:
     - name: Creating image pull secret
       run: |
         cat << EOF > image.yaml
-        DOCKER_REGISTRY_SERVER: $(echo -n "https://docker.io" | base64 -w 0)
         DOCKER_USERNAME: $(echo -n "${{ env.dockerhubUsername }}" | base64 -w 0)
         DOCKER_PASSWORD: $(echo -n "${{ secrets.DOCKER_TOKEN }}" | base64 -w 0)
         DOCKER_EMAIL: $(echo -n "awasthimukesh123@gmail.com" | base64 -w 0)
