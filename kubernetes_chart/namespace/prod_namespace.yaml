@@ -1,0 +1,6 @@
+namespaces:
+  - blog-prod
+  - ingress-nginx-prod
+
+environment: prod
+owner: mukesh.awasthi
