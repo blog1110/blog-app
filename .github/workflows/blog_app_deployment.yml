@@ -164,6 +164,9 @@ jobs:
         POSTGRES_PASSWORD: $(echo -n "${{ env.postgresPassword }}" | base64 -w 0)
         POSTGRES_HOST: $(ehco -n "${{ env.postgresHost }}" | base64 -w 0)
         DATABASE_URL: $(echo -n "${{ env.databaseUrl }}?sslmode=disable" | base64 -w 0)
+        DOCKER_USERNAME: $(echo -n "${{ env.dockerhubUsername }}" | base64 -w 0)
+        DOCKER_PASSWORD: $(echo -n "${{ secrets.DOCKER_TOKEN }}" | base64 -w 0)
+        DOCKER_EMAIL: $(echo -n "awasthimukesh123@gmail.com" | base64 -w 0)
         EOF
 
     - name: Helm repo for postgres
