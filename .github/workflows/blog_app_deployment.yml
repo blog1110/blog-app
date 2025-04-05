@@ -187,15 +187,6 @@ jobs:
         DOCKER_EMAIL: $(echo -n "awasthimukesh123@gmail.com" | base64 -w 0)
         EOF
 
-    - name: Helm repo for postgres
-      run: |
-        helm repo add bitnami https://charts.bitnami.com/bitnami
-
-    - name: Helm chart installation for postgres
-      working-directory: ${{ env.postgres }}
-      run: |
-        helm upgrade --install blo-postgresql bitnami/postgresql --namespace ${{ env.namespace }} --version 16.6.0 -f ${{ env.postgresValuesFile}}
-
     - name: Helm chart dry-run for application
       run: |
         helm upgrade --install ${{ env.helmReleaseName }} ${{ env.helm }} \
