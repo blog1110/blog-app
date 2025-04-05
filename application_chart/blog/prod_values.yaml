@@ -35,3 +35,22 @@ readinessProbe:
 
 # Secrets Configuration
 secretData:
+
+ingress:
+  enabled: true
+  className: infix-dev-ingress-class
+  annotations:
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    acme.cert-manager.io/http01-edit-in-place: "true"
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "16k"
+    cert-manager.io/cluster-issuer: infix-dev-clusterissuer
+    nginx.ingress.kubernetes.io/cors-allow-origin: "blog.qbits.ltd"
+  rules:
+    - host: blog.qbits.ltd
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - blog.qbits.ltd
+      secretName: blog-tls-secret
