@@ -12,7 +12,6 @@ This directory contains Helm charts used for deploying the application and kuber
 - **`application/`**
   Contains:
   - `blog/`: Helm chart for deploying the Go-based blog application.
-  - `postgres/`: Helm chart for installing the PostgreSQL database used by the blog app.
 
 - **`kubernetes/`**  
   Contains:
@@ -54,3 +53,15 @@ on:
         options:
           - dev
           - prod
+```
+
+## Working with the Repository
+
+If you are working with this repository then:
+
+- Clone the repository to your local machine
+- Create a new branch for your changes.
+- Make your changes and commit them only to feature branches.
+- Create a pull request to merge your changes into the `main` branch.
+
+> **Note**: You can use the `dev` branch to test your changes before merging them into the `main` branch.
