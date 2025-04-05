@@ -35,8 +35,6 @@ readinessProbe:
 
 # Secrets Configuration
 secretData:
-imageSecretData:
-customSecretEnabled: true
 
 # Ingress Configuration
 ingress:
